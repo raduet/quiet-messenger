@@ -28,6 +28,8 @@ include(cmake/lib_ffmpeg.cmake)
 include(cmake/lib_stripe.cmake)
 include(cmake/lib_tgcalls.cmake)
 include(cmake/lib_prisma.cmake)
+include(cmake/lib_sentencepiece.cmake)
+include(cmake/lib_onnxruntime.cmake)
 include(cmake/td_export.cmake)
 include(cmake/td_iv.cmake)
 include(cmake/td_lang.cmake)
@@ -92,7 +94,17 @@ PRIVATE
     desktop-app::external_openssl
     desktop-app::external_openal
     desktop-app::external_xxhash
+    $<$<BOOL:${QUIET_ONNX_AVAILABLE}>:tdesktop::lib_quiet_onnx>
 )
+
+if (QUIET_ONNX_AVAILABLE AND WIN32)
+    add_custom_command(TARGET Telegram POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_BINARY_DIR}/_deps/onnxruntime_build/bin/$<CONFIG>/onnxruntime.dll"
+            $<TARGET_FILE_DIR:Telegram>
+        COMMENT "Copying onnxruntime.dll for Quiet"
+    )
+endif()
 
 target_precompile_headers(Telegram PRIVATE $<$<COMPILE_LANGUAGE:CXX,OBJCXX>:${src_loc}/stdafx.h>)
 nice_target_sources(Telegram ${src_loc}
@@ -1770,6 +1782,15 @@ PRIVATE
     window/window_main_menu.h
     window/window_main_menu_helpers.cpp
     window/window_main_menu_helpers.h
+    quiet/quiet_controller.cpp
+    quiet/quiet_controller.h
+    quiet/quiet_cover_button.cpp
+    quiet/quiet_cover_button.h
+    quiet/quiet_mode_layer_widget.cpp
+    quiet/quiet_mode_layer_widget.h
+    quiet/digest/data_provider.cpp
+    quiet/digest/data_provider.h
+    quiet/digest/digest_types.h
     window/window_media_preview.cpp
     window/window_media_preview.h
     window/window_peer_menu.cpp

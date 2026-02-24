@@ -1,5 +1,5 @@
-#define MyAppShortName "Telegram"
-#define MyAppName "Telegram Desktop"
+#define MyAppShortName "Quiet"
+#define MyAppName "Quiet Messenger"
 #define MyAppPublisher "Telegram FZ-LLC"
 #define MyAppURL "https://desktop.telegram.org"
 #define MyAppExeName "Telegram.exe"

@@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_main_menu_helpers.h"
 #include "window/window_peer_menu.h"
 #include "window/window_session_controller.h"
+#include "quiet/quiet_controller.h"
 #include "styles/style_chat.h" // popupMenuExpandedSeparator
 #include "styles/style_info.h" // infoTopBarMenu
 #include "styles/style_layers.h"
@@ -79,11 +80,110 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <QtGui/QGuiApplication>
 #include <QtGui/QClipboard>
+#include <QtGui/QImage>
+#include "base/timer.h"
 
 namespace Window {
 namespace {
 
 constexpr auto kPlayStatusLimit = 2;
+constexpr int kQuietModeMenuIconSize = 34;
+
+class QuietModeMenuIcon final : public Ui::RpWidget {
+public:
+	QuietModeMenuIcon(QWidget *parent) : RpWidget(parent) {
+		_icon = QImage(u":/gui/art/quiet_mode.png"_q);
+		setAttribute(Qt::WA_TransparentForMouseEvents);
+	}
+
+protected:
+	void paintEvent(QPaintEvent *e) override {
+		Painter p(this);
+		if (_icon.isNull()) return;
+		const auto scaled = _icon.scaled(
+			width(),
+			height(),
+			Qt::KeepAspectRatio,
+			Qt::SmoothTransformation);
+		p.drawImage(
+			(width() - scaled.width()) / 2,
+			(height() - scaled.height()) / 2,
+			scaled);
+	}
+
+private:
+	QImage _icon;
+};
+
+class QuietModeShimmerOverlay final : public Ui::RpWidget {
+public:
+	QuietModeShimmerOverlay(QWidget *parent) : RpWidget(parent)
+	, _isNightMode(Window::Theme::IsNightMode()) {
+		setAttribute(Qt::WA_TransparentForMouseEvents);
+		_timer.callEach(60);
+		_label = tr::lng_menu_quiet_mode(tr::now);
+		Window::Theme::IsNightModeValue(
+		) | rpl::on_next([=](bool isNight) {
+			_isNightMode = isNight;
+			update();
+		}, lifetime());
+	}
+
+protected:
+	void paintEvent(QPaintEvent *e) override {
+		Painter p(this);
+		PainterHighQualityEnabler hq(p);
+		const auto textLeft = st::mainMenuButton.padding.left();
+		const auto textRect = QRect(
+			textLeft,
+			0,
+			std::max(0, width() - textLeft - st::mainMenuButton.padding.right()),
+			height());
+		if (textRect.isEmpty() || _label.isEmpty()) return;
+		p.setFont(st::semiboldFont);
+		QFontMetrics fm(p.font());
+		const auto baselineY = textRect.top()
+			+ (textRect.height() - fm.height()) / 2
+			+ fm.ascent();
+		QPainterPath path;
+		path.addText(textRect.left(), baselineY, p.font(), _label);
+		const auto w = textRect.width();
+		const auto band = std::max(90, int(w * 0.65));
+		QLinearGradient g(
+			textRect.left() + w * _phase - band,
+			0,
+			textRect.left() + w * _phase + band,
+			0);
+		if (_isNightMode) {
+			g.setColorAt(0, QColor(130, 145, 165));
+			g.setColorAt(0.3, QColor(175, 190, 210));
+			g.setColorAt(0.5, QColor(255, 255, 255));
+			g.setColorAt(0.7, QColor(175, 190, 210));
+			g.setColorAt(1, QColor(130, 145, 165));
+		} else {
+			g.setColorAt(0, QColor(100, 115, 140));
+			g.setColorAt(0.3, QColor(140, 155, 185));
+			g.setColorAt(0.5, QColor(220, 225, 235));
+			g.setColorAt(0.7, QColor(140, 155, 185));
+			g.setColorAt(1, QColor(100, 115, 140));
+		}
+		p.setPen(Qt::NoPen);
+		p.setBrush(g);
+		p.drawPath(path);
+	}
+
+private:
+	void advancePhase() {
+		_phase += 0.005;
+		if (_phase > 1.) _phase -= 1.;
+		update();
+	}
+	base::Timer _timer{ [=] { advancePhase(); } };
+	float64 _phase = 0.;
+	QString _label;
+	bool _isNightMode;
+};
+
 
 [[nodiscard]] bool CanCheckSpecialEvent() {
 	static const auto result = [] {
@@ -384,7 +484,7 @@ MainMenu::MainMenu(
 	parentResized();
 
 	_telegram->setMarkedText(tr::link(
-		u"Telegram Desktop"_q,
+		u"Quiet Messenger"_q,
 		u"https://desktop.telegram.org"_q));
 	_telegram->setLinksTrusted();
 	_version->setMarkedText(
@@ -660,6 +760,37 @@ void MainMenu::setupMenu() {
 			std::move(descriptor));
 	};
 	if (!_controller->session().supportMode()) {
+		auto quietModeButton = CreateButtonWithIcon(
+			_menu,
+			rpl::single(QString()),
+			st::mainMenuButton,
+			IconDescriptor{});
+		const auto quietModeRaw = quietModeButton.get();
+		const auto iconWidget = Ui::CreateChild<QuietModeMenuIcon>(quietModeRaw);
+		iconWidget->resize(kQuietModeMenuIconSize, kQuietModeMenuIconSize);
+		quietModeRaw->heightValue(
+		) | rpl::on_next([=](int h) {
+			iconWidget->move(
+				st::mainMenuButton.iconLeft + 2,
+				(h - iconWidget->height()) / 2);
+		}, quietModeRaw->lifetime());
+		iconWidget->show();
+		const auto shimmerWidget = Ui::CreateChild<QuietModeShimmerOverlay>(
+			quietModeRaw);
+		quietModeRaw->sizeValue(
+		) | rpl::on_next([=](QSize size) {
+			shimmerWidget->setGeometry(0, 0, size.width(), size.height());
+		}, quietModeRaw->lifetime());
+		shimmerWidget->show();
+		shimmerWidget->raise();
+		_menu->add(std::move(quietModeButton))->setClickedCallback([=] {
+			Quiet::ShowQuietMode(controller);
+		});
+
+		_menu->add(
+			object_ptr<Ui::PlainShadow>(_menu),
+			{ 0, st::mainMenuSkip, 0, st::mainMenuSkip });
+
 		_menu->add(
 			CreateButtonWithIcon(
 				_menu,
