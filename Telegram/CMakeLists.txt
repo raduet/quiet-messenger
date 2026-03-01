@@ -100,7 +100,7 @@ PRIVATE
 if (QUIET_ONNX_AVAILABLE AND WIN32)
     add_custom_command(TARGET Telegram POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_BINARY_DIR}/_deps/onnxruntime_build/bin/$<CONFIG>/onnxruntime.dll"
+            "${CMAKE_BINARY_DIR}/_deps/onnxruntime_build/$<CONFIG>/onnxruntime.dll"
             $<TARGET_FILE_DIR:Telegram>
         COMMENT "Copying onnxruntime.dll for Quiet"
     )

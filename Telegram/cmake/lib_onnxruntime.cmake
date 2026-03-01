@@ -26,13 +26,19 @@ endif()
 set(QUIET_ONNX_AVAILABLE ON)
 set(onnxruntime_source_cmake "${onnxruntime_source_dir}/cmake")
 
+include(ProcessorCount)
+ProcessorCount(ONNX_BUILD_JOBS)
+if(ONNX_BUILD_JOBS EQUAL 0)
+    set(ONNX_BUILD_JOBS 1)
+endif()
+
 include(ExternalProject)
 set(onnxruntime_byproducts "")
 if (WIN32)
     foreach(_cfg Debug Release RelWithDebInfo MinSizeRel)
         list(APPEND onnxruntime_byproducts
-            ${onnxruntime_build_dir}/bin/${_cfg}/onnxruntime.dll
-            ${onnxruntime_build_dir}/bin/${_cfg}/onnxruntime.lib
+            ${onnxruntime_build_dir}/${_cfg}/onnxruntime.dll
+            ${onnxruntime_build_dir}/${_cfg}/onnxruntime.lib
         )
     endforeach()
 elseif (APPLE)
@@ -96,7 +102,7 @@ ExternalProject_Add(onnxruntime_ext
         -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDebugDLL
         ${onnxruntime_extra_args}
     ${onnxruntime_patch_cmd}
-    BUILD_COMMAND ${CMAKE_COMMAND} --build ${onnxruntime_build_dir} --config $<CONFIG> --parallel
+    BUILD_COMMAND ${CMAKE_COMMAND} --build ${onnxruntime_build_dir} --config $<CONFIG> --parallel ${ONNX_BUILD_JOBS} $<$<BOOL:${WIN32}>:-- /m:${ONNX_BUILD_JOBS}>
     INSTALL_COMMAND ""
     BUILD_BYPRODUCTS ${onnxruntime_byproducts}
     EXCLUDE_FROM_ALL ON
@@ -112,21 +118,21 @@ add_dependencies(desktop-app::external_onnxruntime onnxruntime_ext)
 target_include_directories(desktop-app::external_onnxruntime INTERFACE ${SOURCE_DIR}/include)
 
 if (WIN32)
-    set(onnxruntime_lib_release "${onnxruntime_build_dir}/bin/Release/onnxruntime.dll")
-    set(onnxruntime_lib_release_lib "${onnxruntime_build_dir}/bin/Release/onnxruntime.lib")
-    set(onnxruntime_lib_debug "${onnxruntime_build_dir}/bin/Debug/onnxruntime.dll")
-    set(onnxruntime_lib_debug_lib "${onnxruntime_build_dir}/bin/Debug/onnxruntime.lib")
+    set(onnxruntime_lib_release "${onnxruntime_build_dir}/Release/onnxruntime.dll")
+    set(onnxruntime_lib_release_lib "${onnxruntime_build_dir}/Release/onnxruntime.lib")
+    set(onnxruntime_lib_debug "${onnxruntime_build_dir}/Debug/onnxruntime.dll")
+    set(onnxruntime_lib_debug_lib "${onnxruntime_build_dir}/Debug/onnxruntime.lib")
     target_link_libraries(desktop-app::external_onnxruntime INTERFACE
         $<$<CONFIG:Release>:${onnxruntime_lib_release_lib}>
-        $<$<CONFIG:RelWithDebInfo>:${onnxruntime_build_dir}/bin/RelWithDebInfo/onnxruntime.lib>
+        $<$<CONFIG:RelWithDebInfo>:${onnxruntime_build_dir}/RelWithDebInfo/onnxruntime.lib>
         $<$<CONFIG:Debug>:${onnxruntime_lib_debug_lib}>
-        $<$<CONFIG:MinSizeRel>:${onnxruntime_build_dir}/bin/MinSizeRel/onnxruntime.lib>
+        $<$<CONFIG:MinSizeRel>:${onnxruntime_build_dir}/MinSizeRel/onnxruntime.lib>
     )
     target_link_directories(desktop-app::external_onnxruntime INTERFACE
-        $<$<CONFIG:Release>:${onnxruntime_build_dir}/bin/Release>
-        $<$<CONFIG:RelWithDebInfo>:${onnxruntime_build_dir}/bin/RelWithDebInfo>
-        $<$<CONFIG:Debug>:${onnxruntime_build_dir}/bin/Debug>
-        $<$<CONFIG:MinSizeRel>:${onnxruntime_build_dir}/bin/MinSizeRel>
+        $<$<CONFIG:Release>:${onnxruntime_build_dir}/Release>
+        $<$<CONFIG:RelWithDebInfo>:${onnxruntime_build_dir}/RelWithDebInfo>
+        $<$<CONFIG:Debug>:${onnxruntime_build_dir}/Debug>
+        $<$<CONFIG:MinSizeRel>:${onnxruntime_build_dir}/MinSizeRel>
     )
 elseif (APPLE)
     target_link_libraries(desktop-app::external_onnxruntime INTERFACE
