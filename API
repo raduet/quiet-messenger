@@ -1,0 +1,4 @@
+api id 23984347
+api hash 450efeb59af2357ddc7188a202dee3d1
+
+configure.bat x64 -D TDESKTOP_API_ID=23984347 -D TDESKTOP_API_HASH=450efeb59af2357ddc7188a202dee3d1

@@ -1,0 +1,11 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pt
+output/*.onnx
+output/*.model
+output/*.pt
+!output/.gitkeep
+_corpus.txt
+*.log

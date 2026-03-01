@@ -1,0 +1,26 @@
+# Optional config for train.py. Defaults are used if file or keys are missing.
+
+data:
+  train_csv: "datasets/train.csv"
+  train_json: null
+  max_input_len: 512
+  max_output_len: 128
+
+tokenizer:
+  vocab_size: 8000
+  model_path: "output/tokenizer.model"
+
+train:
+  batch_size: 8
+  epochs: 10
+  lr: 1.0e-4
+  device: "cuda"
+  hidden_size: 256
+  num_layers: 2
+  dropout: 0.1
+
+output:
+  dir: "output"
+  onnx_name: "summarizer.onnx"
+  tokenizer_name: "tokenizer.model"
+  checkpoint_name: "checkpoint.pt"

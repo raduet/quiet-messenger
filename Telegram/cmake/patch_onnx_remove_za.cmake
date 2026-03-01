@@ -1,0 +1,21 @@
+if(NOT ONNX_SOURCE_DIR)
+    message(FATAL_ERROR "ONNX_SOURCE_DIR required")
+endif()
+file(GLOB_RECURSE CMAKE_FILES
+    "${ONNX_SOURCE_DIR}/cmake/*.cmake"
+    "${ONNX_SOURCE_DIR}/onnxruntime/*.cmake"
+)
+set(PATCHED 0)
+foreach(F IN LISTS CMAKE_FILES)
+    file(READ "${F}" CONTENT)
+    string(FIND "${CONTENT}" "/Za" IDX)
+    if(NOT IDX EQUAL -1)
+        string(REPLACE "/Za" "" CONTENT "${CONTENT}")
+        string(REPLACE "  " " " CONTENT "${CONTENT}")
+        file(WRITE "${F}" "${CONTENT}")
+        math(EXPR PATCHED "${PATCHED}+1")
+    endif()
+endforeach()
+if(PATCHED GREATER 0)
+    message(STATUS "Removed /Za from ${PATCHED} cmake file(s)")
+endif()

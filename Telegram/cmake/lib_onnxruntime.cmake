@@ -1,12 +1,20 @@
-# ONNX Runtime from source (for Quiet ML only).
-# Requires: Telegram/ThirdParty/onnxruntime cloned (see README or run git clone).
-# Build also requires Python (for ONNX Runtime's gen_def.py).
+# ONNX Runtime for Quiet ML: build from Git tag (stable) or use local clone.
+# Build requires Python (for ONNX Runtime's gen_def.py).
 set(QUIET_ONNX_AVAILABLE OFF)
 
-if (NOT EXISTS "${third_party_loc}/onnxruntime/cmake/CMakeLists.txt")
-    message(WARNING "ONNX Runtime source not found at ${third_party_loc}/onnxruntime. Quiet ONNX support disabled. Clone with: git clone --depth 1 https://github.com/microsoft/onnxruntime.git Telegram/ThirdParty/onnxruntime")
-    set(QUIET_ONNX_AVAILABLE OFF)
+option(QUIET_USE_ONNX_RUNTIME "Build with ONNX Runtime for Quiet ML (downloads and builds onnxruntime)" ON)
+if (NOT QUIET_USE_ONNX_RUNTIME)
     return()
+endif()
+
+set(onnxruntime_build_dir ${CMAKE_BINARY_DIR}/_deps/onnxruntime_build)
+set(onnxruntime_prefix_dir ${CMAKE_BINARY_DIR}/_deps/onnxruntime_src)
+if (EXISTS "${third_party_loc}/onnxruntime/cmake/CMakeLists.txt")
+    set(onnxruntime_use_local ON)
+    set(onnxruntime_source_dir "${third_party_loc}/onnxruntime")
+else()
+    set(onnxruntime_use_local OFF)
+    set(onnxruntime_source_dir "${onnxruntime_prefix_dir}/src/onnxruntime_ext")
 endif()
 
 if (CMAKE_VERSION VERSION_LESS "3.28")
@@ -16,28 +24,65 @@ if (CMAKE_VERSION VERSION_LESS "3.28")
 endif()
 
 set(QUIET_ONNX_AVAILABLE ON)
-set(onnxruntime_build_dir ${CMAKE_BINARY_DIR}/_deps/onnxruntime_build)
-set(onnxruntime_source_cmake "${third_party_loc}/onnxruntime/cmake")
+set(onnxruntime_source_cmake "${onnxruntime_source_dir}/cmake")
 
 include(ExternalProject)
 set(onnxruntime_byproducts "")
 if (WIN32)
-    list(APPEND onnxruntime_byproducts
-        ${onnxruntime_build_dir}/bin/Release/onnxruntime.dll
-        ${onnxruntime_build_dir}/bin/Release/onnxruntime.lib
-    )
+    foreach(_cfg Debug Release RelWithDebInfo MinSizeRel)
+        list(APPEND onnxruntime_byproducts
+            ${onnxruntime_build_dir}/bin/${_cfg}/onnxruntime.dll
+            ${onnxruntime_build_dir}/bin/${_cfg}/onnxruntime.lib
+        )
+    endforeach()
 elseif (APPLE)
     list(APPEND onnxruntime_byproducts ${onnxruntime_build_dir}/libonnxruntime.dylib)
 else()
     list(APPEND onnxruntime_byproducts ${onnxruntime_build_dir}/libonnxruntime.so)
 endif()
 
+set(onnxruntime_extra_args "")
+
+set(onnxruntime_ep_source "")
+set(onnxruntime_patch_cmd "")
+if (onnxruntime_use_local)
+    set(onnxruntime_ep_source SOURCE_DIR ${onnxruntime_source_dir})
+else()
+    set(onnxruntime_ep_source
+        GIT_REPOSITORY https://github.com/microsoft/onnxruntime.git
+        GIT_TAG v1.18.1
+        GIT_SHALLOW TRUE
+    )
+    set(onnxruntime_patch_cmd PATCH_COMMAND
+        ${CMAKE_COMMAND} -DONNX_SOURCE_DIR=<SOURCE_DIR> -P ${CMAKE_CURRENT_LIST_DIR}/patch_onnx_eigen.cmake
+        COMMAND ${CMAKE_COMMAND} -DONNX_SOURCE_DIR=<SOURCE_DIR> -P ${CMAKE_CURRENT_LIST_DIR}/patch_onnx_remove_za.cmake
+        COMMAND ${CMAKE_COMMAND} -DONNX_SOURCE_DIR=<SOURCE_DIR> -P ${CMAKE_CURRENT_LIST_DIR}/patch_onnx_chrono.cmake
+        COMMAND ${CMAKE_COMMAND} -DONNX_SOURCE_DIR=<SOURCE_DIR> -P ${CMAKE_CURRENT_LIST_DIR}/patch_onnx_fs.cmake
+        COMMAND ${CMAKE_COMMAND} -DONNX_SOURCE_DIR=<SOURCE_DIR> -P ${CMAKE_CURRENT_LIST_DIR}/patch_onnx_protobuf_rt.cmake
+    )
+endif()
+
+if (WIN32)
+    set(onnxruntime_init_cache "${CMAKE_BINARY_DIR}/onnxruntime_win_cache.cmake")
+    file(WRITE "${onnxruntime_init_cache}"
+        "set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDebugDLL CACHE STRING \"\" FORCE)\n"
+        "set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)\n"
+        "set(CMAKE_C_FLAGS \"${CMAKE_C_FLAGS} /FS\" CACHE STRING \"\" FORCE)\n"
+        "set(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} /FS\" CACHE STRING \"\" FORCE)\n"
+        "set(CMAKE_C_FLAGS_DEBUG \"${CMAKE_C_FLAGS_DEBUG} /FS\" CACHE STRING \"\" FORCE)\n"
+        "set(CMAKE_CXX_FLAGS_DEBUG \"${CMAKE_CXX_FLAGS_DEBUG} /FS\" CACHE STRING \"\" FORCE)\n"
+    )
+endif()
+
 ExternalProject_Add(onnxruntime_ext
-    SOURCE_DIR ${third_party_loc}/onnxruntime
+    PREFIX ${onnxruntime_prefix_dir}
+    ${onnxruntime_ep_source}
     BINARY_DIR ${onnxruntime_build_dir}
     CONFIGURE_COMMAND ${CMAKE_COMMAND}
-        -S ${onnxruntime_source_cmake}
+        $<$<BOOL:${WIN32}>:-C ${onnxruntime_init_cache}>
+        -S <SOURCE_DIR>/cmake
         -B ${onnxruntime_build_dir}
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         -Donnxruntime_BUILD_SHARED_LIB=ON
         -Donnxruntime_BUILD_UNIT_TESTS=OFF
         -Donnxruntime_BUILD_BENCHMARKS=OFF
@@ -48,18 +93,23 @@ ExternalProject_Add(onnxruntime_ext
         -Donnxruntime_USE_VCPKG=OFF
         -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/_deps/onnxruntime_install
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-    BUILD_COMMAND ${CMAKE_COMMAND} --build ${onnxruntime_build_dir} --config $<CONFIG>
+        -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDebugDLL
+        ${onnxruntime_extra_args}
+    ${onnxruntime_patch_cmd}
+    BUILD_COMMAND ${CMAKE_COMMAND} --build ${onnxruntime_build_dir} --config $<CONFIG> --parallel
     INSTALL_COMMAND ""
     BUILD_BYPRODUCTS ${onnxruntime_byproducts}
     EXCLUDE_FROM_ALL ON
+    LOG_DOWNLOAD ON
+    LOG_CONFIGURE ON
+    LOG_BUILD ON
 )
 
-# Include dir for headers: use only source tree (build/include does not exist until after build)
-set(onnxruntime_include_dirs ${third_party_loc}/onnxruntime/include)
-
+ExternalProject_Get_Property(onnxruntime_ext SOURCE_DIR)
+file(MAKE_DIRECTORY "${SOURCE_DIR}/include")
 add_library(desktop-app::external_onnxruntime INTERFACE IMPORTED GLOBAL)
 add_dependencies(desktop-app::external_onnxruntime onnxruntime_ext)
-target_include_directories(desktop-app::external_onnxruntime INTERFACE ${onnxruntime_include_dirs})
+target_include_directories(desktop-app::external_onnxruntime INTERFACE ${SOURCE_DIR}/include)
 
 if (WIN32)
     set(onnxruntime_lib_release "${onnxruntime_build_dir}/bin/Release/onnxruntime.dll")

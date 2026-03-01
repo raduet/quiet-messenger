@@ -1,0 +1,3 @@
+input_text,summary_text
+"First message in the thread. Second message adds details. Third message asks a question.","Thread discusses a topic and ends with a question."
+"User A: Hello. User B: Hi there. User A: How are you? User B: I'm fine thanks.","Short greeting exchange between two users."

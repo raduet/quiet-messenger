@@ -24,4 +24,4 @@ set(SPM_ABSL_PROVIDER "internal" CACHE STRING "Use internal absl" FORCE)
 
 add_subdirectory(${third_party_loc}/sentencepiece ${CMAKE_BINARY_DIR}/_deps/sentencepiece_build EXCLUDE_FROM_ALL)
 
-add_library(desktop-app::external_sentencepiece ALIAS sentencepiece)
+add_library(desktop-app::external_sentencepiece ALIAS sentencepiece-static)

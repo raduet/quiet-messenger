@@ -18,8 +18,10 @@
 Built only if sources are present under `Telegram/ThirdParty/`:
 
 1. **ONNX Runtime** (for summarizer)
+   - **Option A:** Do nothing — CMake will fetch tag v1.18.1 and build from source (recommended).
+   - **Option B:** Use a local clone (e.g. for a specific version). If you had a clone that fails to configure (e.g. `onnx_proto` / `re2::re2` errors), remove or rename `Telegram/ThirdParty/onnxruntime` so Option A is used.
    ```bat
-   git clone --depth 1 https://github.com/microsoft/onnxruntime.git Telegram/ThirdParty/onnxruntime
+   git clone --depth 1 --branch v1.18.1 https://github.com/microsoft/onnxruntime.git Telegram/ThirdParty/onnxruntime
    ```
    Requires CMake 3.28+ and Python (for ONNX build).
 

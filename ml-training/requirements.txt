@@ -1,0 +1,13 @@
+# Quiet summarizer training
+# Python 3.9+ recommended
+
+torch>=2.0.0
+sentencepiece>=0.1.99
+onnx>=1.14.0
+onnxruntime>=1.16.0
+numpy>=1.24.0
+
+# optional: progress and data handling
+tqdm>=4.65.0
+# optional: config.yaml
+pyyaml>=6.0
