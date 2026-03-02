@@ -3,6 +3,8 @@
 data:
   train_csv: "datasets/train.csv"
   train_json: null
+  train_parquet: null
+  train_dialogsum_dir: "datasets/dialogsum-ru"
   max_input_len: 512
   max_output_len: 128
 
@@ -12,15 +14,19 @@ tokenizer:
 
 train:
   batch_size: 8
-  epochs: 10
+  epochs: 3
   lr: 1.0e-4
   device: "cuda"
   hidden_size: 256
   num_layers: 2
   dropout: 0.1
+  validation_split: 0.1
+  save_every_epoch: true
+  early_stopping_patience: 0
 
 output:
   dir: "output"
   onnx_name: "summarizer.onnx"
   tokenizer_name: "tokenizer.model"
   checkpoint_name: "checkpoint.pt"
+  checkpoint_best_name: "checkpoint_best.pt"

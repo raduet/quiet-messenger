@@ -11,3 +11,7 @@ numpy>=1.24.0
 tqdm>=4.65.0
 # optional: config.yaml
 pyyaml>=6.0
+# optional: Parquet datasets
+pyarrow>=14.0.0
+# required for torch.onnx.export (PyTorch 2.x)
+onnxscript>=0.1.0

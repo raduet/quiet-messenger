@@ -35,12 +35,10 @@ endif()
 include(ExternalProject)
 set(onnxruntime_byproducts "")
 if (WIN32)
-    foreach(_cfg Debug Release RelWithDebInfo MinSizeRel)
-        list(APPEND onnxruntime_byproducts
-            ${onnxruntime_build_dir}/${_cfg}/onnxruntime.dll
-            ${onnxruntime_build_dir}/${_cfg}/onnxruntime.lib
-        )
-    endforeach()
+    list(APPEND onnxruntime_byproducts
+        ${onnxruntime_build_dir}/$<CONFIG>/onnxruntime.dll
+        ${onnxruntime_build_dir}/$<CONFIG>/onnxruntime.lib
+    )
 elseif (APPLE)
     list(APPEND onnxruntime_byproducts ${onnxruntime_build_dir}/libonnxruntime.dylib)
 else()
@@ -83,6 +81,7 @@ endif()
 ExternalProject_Add(onnxruntime_ext
     PREFIX ${onnxruntime_prefix_dir}
     ${onnxruntime_ep_source}
+    UPDATE_DISCONNECTED 1
     BINARY_DIR ${onnxruntime_build_dir}
     CONFIGURE_COMMAND ${CMAKE_COMMAND}
         $<$<BOOL:${WIN32}>:-C ${onnxruntime_init_cache}>
@@ -156,8 +155,10 @@ add_library(tdesktop::lib_quiet_onnx ALIAS lib_quiet_onnx)
 target_sources(lib_quiet_onnx PRIVATE
     ${telegram_src_loc}/quiet/quiet_onnx_stub.cpp
     ${telegram_src_loc}/quiet/ml/summarizer.cpp
+    ${telegram_src_loc}/quiet/ml/readiness.cpp
 )
 if (QUIET_SENTENCEPIECE_AVAILABLE)
+    target_compile_definitions(lib_quiet_onnx PRIVATE QUIET_HAVE_SENTENCEPIECE=1)
     target_sources(lib_quiet_onnx PRIVATE ${telegram_src_loc}/quiet/ml/tokenizer.cpp)
     target_include_directories(lib_quiet_onnx PRIVATE ${third_party_loc}/sentencepiece/src)
 endif()

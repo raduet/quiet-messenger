@@ -97,6 +97,10 @@ PRIVATE
     $<$<BOOL:${QUIET_ONNX_AVAILABLE}>:tdesktop::lib_quiet_onnx>
 )
 
+if (QUIET_ONNX_AVAILABLE)
+    target_compile_definitions(Telegram PRIVATE QUIET_HAVE_ONNX=1)
+endif()
+
 if (QUIET_ONNX_AVAILABLE AND WIN32)
     add_custom_command(TARGET Telegram POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

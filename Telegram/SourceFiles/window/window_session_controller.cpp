@@ -120,6 +120,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_boxes.h"
 #include "styles/style_dialogs.h"
 #include "styles/style_layers.h" // st::boxLabel
+#if defined(QUIET_HAVE_ONNX)
+#include "quiet/ml/readiness.h"
+#endif
 
 namespace Window {
 namespace {
@@ -1845,6 +1848,15 @@ void SessionController::init() {
 	if (session().supportMode()) {
 		session().supportHelper().registerWindow(this);
 	}
+#if defined(QUIET_HAVE_ONNX)
+	if (Quiet::Ml::IsQuietMlReady()) {
+		static auto shown = false;
+		if (!shown) {
+			shown = true;
+			showToast(u"Quiet ML: ONNX and SentencePiece ready."_q);
+		}
+	}
+#endif
 	setupShortcuts();
 }
 

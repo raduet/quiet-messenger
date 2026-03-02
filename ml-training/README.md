@@ -31,6 +31,15 @@ Training pipeline for the Quiet summarizer model. Produces an ONNX model and a S
 
 4. Outputs appear in `output/`: `summarizer.onnx`, `tokenizer.model`. Copy them into the app resources or the path your C++ summarizer uses.
 
+5. Test in Python (same runtime as training):
+
+   ```bash
+   python inference.py "Диалог или длинный текст для суммаризации..."
+   echo "Your text" | python inference.py
+   ```
+
+   Or from code: `from inference import load_summarizer, summarize; s = load_summarizer(); print(summarize(s, "Your text"))`
+
 ## Config
 
 Optional `config.yaml` in this directory:
